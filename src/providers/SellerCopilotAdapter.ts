@@ -17,7 +17,7 @@ export const createSellerCopilotAdapter = (
       .join('');
 
     const response = await fetch(
-      `http://13.201.239.127:8123/api/zopilot/stream`,
+      `https://playground-qa.zotok.ai/api/zopilot/stream`,
       {
         method: 'POST',
         headers: {

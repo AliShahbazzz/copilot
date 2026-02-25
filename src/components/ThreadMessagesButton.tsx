@@ -1,32 +1,17 @@
 import { usePanel } from "../providers/PanelContext";
 
-export interface CustomerListPayload {
-  type: "ui_action";
-  component: {
-    type: "customer_list";
-    title: string;
-    description: string;
-    customers: any[];
-  };
-}
-
-export const CustomerListButton = ({
-  result,
-}: {
-  result: CustomerListPayload;
-}) => {
+export const ThreadMessagesButton = ({ result }: { result: any }) => {
   const { setPanel } = usePanel();
 
-  if (!result?.component) return <></>;
-  const { title, description } = result.component;
+  const component = result?.component;
+  if (!component) return null;
 
-  const customers = result.component.customers ?? [];
+  const { title, description, messages = [], total_messages } = component;
 
-  // Derive columns dynamically from first record's keys, excluding id-like fields
-  const excludedKeys = ["customerId", "customerCode", "id"];
+  const excludedKeys: string[] = [];
   const columns =
-    customers.length > 0
-      ? Object.keys(customers[0]).filter((k) => !excludedKeys.includes(k))
+    messages.length > 0
+      ? Object.keys(messages[0]).filter((k) => !excludedKeys.includes(k))
       : [];
 
   const formatHeader = (key: string) =>
@@ -80,20 +65,19 @@ export const CustomerListButton = ({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {customers.map((customer: any) => (
-            <tr
-              key={customer.customerId ?? customer.id}
-              className="hover:bg-gray-50 transition-colors"
-            >
+          {messages.map((msg: any, idx: number) => (
+            <tr key={idx} className="hover:bg-gray-50 transition-colors">
               {columns.map((col) => (
                 <td
                   key={col}
-                  className="py-3 pr-6 text-gray-500 text-xs max-w-xs truncate"
+                  className="py-3 pr-6 text-xs text-gray-600 max-w-xs"
                 >
-                  {!customer[col] || customer[col] === "N/A" ? (
+                  {!msg[col] || msg[col] === "N/A" ? (
                     <span className="italic text-gray-300">—</span>
+                  ) : col === "text" ? (
+                    <span className="whitespace-normal">{msg[col]}</span>
                   ) : (
-                    customer[col]
+                    String(msg[col])
                   )}
                 </td>
               ))}
@@ -116,7 +100,7 @@ export const CustomerListButton = ({
           <p className="text-xs text-gray-500 mt-0.5">{description}</p>
         </div>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-          {customers?.length ?? 0} results
+          {total_messages ?? messages.length} messages
         </span>
       </div>
     </button>

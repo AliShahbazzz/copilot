@@ -80,20 +80,18 @@ const ThreadLayout = () => {
           }}
         />
       </div>
-      {panel ? (
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            borderLeft: "1px solid #e5e7eb",
-            overflowY: "auto",
-            transition: "flex 300ms ease",
-            backgroundColor: "white",
-          }}
-        >
-          {panel}
-        </div>
-      ) : null}
+      <div
+        style={{
+          flex: panel ? 1 : 0,
+          minWidth: 0,
+          borderLeft: "1px solid #e5e7eb",
+          overflowY: "auto",
+          transition: "flex 300ms ease",
+          backgroundColor: "white",
+        }}
+      >
+        {panel}
+      </div>
     </div>
   );
 };

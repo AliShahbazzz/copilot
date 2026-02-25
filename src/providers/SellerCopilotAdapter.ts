@@ -1,11 +1,5 @@
 import type { ChatModelAdapter } from '@assistant-ui/react';
 
-type ToolStatusPayload = {
-  phase: string;
-  message: string;
-  tool?: string;
-};
-
 export const createSellerCopilotAdapter = (
   getToken: () => string,
   threadId: string,
@@ -13,10 +7,7 @@ export const createSellerCopilotAdapter = (
     sellerWorkspaceId?: string;
     waConfigId?: string;
     sellerDetails?: object;
-  },
-  options?: {
-    onStatusUpdate?: (payload: ToolStatusPayload) => void;
-  },
+  }
 ): ChatModelAdapter => ({
   async *run({ messages, abortSignal }) {
     const lastMessage = messages.at(-1);
@@ -84,22 +75,6 @@ export const createSellerCopilotAdapter = (
             throw new Error(data.message);
           } else if (currentEvent === 'message' && !accumulatedText) {
             accumulatedText = data.content;
-          } else if (currentEvent === 'status') {
-            const phase = data.phase as string | undefined;
-            const tool = data.tool as string | undefined;
-            const statusMessage =
-              (data.message as string | undefined) ||
-              (phase === 'graph_update'
-                ? 'Agent is gathering information...'
-                : phase === 'custom_update'
-                  ? 'Agent is preparing UI output...'
-                  : 'Agent is processing...');
-
-            options?.onStatusUpdate?.({
-              phase: phase ?? 'status',
-              message: statusMessage,
-              tool,
-            });
           }
 
           currentEvent = ''; // reset after consuming the data line

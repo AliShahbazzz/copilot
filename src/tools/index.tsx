@@ -1,6 +1,8 @@
 import { useAssistantToolUI } from '@assistant-ui/react';
-import { CustomerListButton } from '../components/CustomerListButton';
-import type { CustomerListPayload } from '../components/CustomerListButton';
+import {
+  CustomerListButton,
+  CustomerListPayload,
+} from '../components/CustomerListButton';
 
 export const ToolUIRegistry = () => {
   useAssistantToolUI({

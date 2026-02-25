@@ -39,21 +39,24 @@ export const createSellerCopilotAdapter = (
       .map((c) => (c as { type: "text"; text: string }).text)
       .join("");
 
-    const response = await fetch(`http://localhost:2024/api/zopilot/stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+    const response = await fetch(
+      `https://playground-qa.zotok.ai/api/zopilot/stream`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          thread_id: threadId,
+          message: text,
+          seller_workspace_id: config.sellerWorkspaceId,
+          wa_config_id: config.waConfigId,
+          seller_details: config.sellerDetails,
+        }),
+        signal: abortSignal,
       },
-      body: JSON.stringify({
-        thread_id: threadId,
-        message: text,
-        seller_workspace_id: config.sellerWorkspaceId,
-        wa_config_id: config.waConfigId,
-        seller_details: config.sellerDetails,
-      }),
-      signal: abortSignal,
-    });
+    );
 
     if (!response.ok || !response.body) {
       throw new Error(`API error: ${response.statusText}`);

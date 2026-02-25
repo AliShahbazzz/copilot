@@ -3,10 +3,12 @@ import { usePanel } from "../providers/PanelContext";
 export interface CustomerListPayload {
   type: "ui_action";
   component: {
-    type: "customer_list";
+    type: string;
+    subType: string;
     title: string;
     description: string;
-    customers: any[];
+    metadata: string;
+    data: any[];
   };
 }
 
@@ -20,7 +22,7 @@ export const CustomerListButton = ({
   if (!result?.component) return <></>;
   const { title, description } = result.component;
 
-  const customers = result.component.customers ?? [];
+  const customers = result.component.data ?? [];
 
   // Derive columns dynamically from first record's keys, excluding id-like fields
   const excludedKeys = ["customerId", "customerCode", "id"];

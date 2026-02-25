@@ -142,7 +142,7 @@ export const createSellerCopilotAdapter = (
               }
             }
           } else if (currentEvent === "ui") {
-            const key = data.tool ?? "ui";
+            const key = "ui";
             uiPayloads.set(key, data.payload);
           } else if (currentEvent === "error") {
             throw new Error(data.message);

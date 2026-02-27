@@ -1,4 +1,5 @@
 import type { ChatModelAdapter } from "@assistant-ui/react";
+import type { StatusStep } from "../components/AgentStatusIndicator";
 
 function extractJsonString(raw: string): { extracted: string; done: boolean } {
   let result = "";
@@ -23,6 +24,17 @@ function extractJsonString(raw: string): { extracted: string; done: boolean } {
   return { extracted: result, done: false };
 }
 
+function buildAgentStatusBlock(steps: StatusStep[]) {
+  return {
+    type: "tool-call" as const,
+    toolCallId: "agent-status",
+    toolName: "agentStatus",
+    args: {},
+    argsText: "{}",
+    result: { steps: steps.map((s) => ({ ...s })) },
+  };
+}
+
 export const createSellerCopilotAdapter = (
   getToken: () => string,
   threadId: string,
@@ -39,24 +51,21 @@ export const createSellerCopilotAdapter = (
       .map((c) => (c as { type: "text"; text: string }).text)
       .join("");
 
-    const response = await fetch(
-      `https://playground-qa.zotok.ai/api/zopilot/stream`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({
-          thread_id: threadId,
-          message: text,
-          seller_workspace_id: config.sellerWorkspaceId,
-          wa_config_id: config.waConfigId,
-          seller_details: config.sellerDetails,
-        }),
-        signal: abortSignal,
+    const response = await fetch(`http://localhost:2024/api/zopilot/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
       },
-    );
+      body: JSON.stringify({
+        thread_id: threadId,
+        message: text,
+        seller_workspace_id: config.sellerWorkspaceId,
+        wa_config_id: config.waConfigId,
+        seller_details: config.sellerDetails,
+      }),
+      signal: abortSignal,
+    });
 
     if (!response.ok || !response.body) {
       throw new Error(`API error: ${response.statusText}`);
@@ -70,10 +79,61 @@ export const createSellerCopilotAdapter = (
     let currentEvent = "";
     let buffer = "";
     let tokenBuffer = "";
-    let isStructuredResponse: boolean | null = null; // null = not yet determined
+    let isStructuredResponse: boolean | null = null;
     let messageExtracted = "";
     let inMessageValue = false;
     let messageValueDone = false;
+
+    // Status tracking
+    const statusSteps: StatusStep[] = [];
+    let hasStatusUpdate = false;
+
+    function handleStatus(data: Record<string, unknown>): boolean {
+      const phase = data.phase as string;
+
+      if (phase === "thinking") {
+        statusSteps.push({ label: (data.label as string) || "Analyzing your request", done: false });
+        return true;
+      }
+
+      if (phase === "tool_start") {
+        // Complete any currently running step (e.g. the "thinking" step)
+        const lastRunning = [...statusSteps].reverse().findIndex((s) => !s.done);
+        if (lastRunning >= 0) {
+          statusSteps[statusSteps.length - 1 - lastRunning].done = true;
+        }
+        statusSteps.push({ label: (data.label as string) || `Running ${data.tool}`, done: false });
+        return true;
+      }
+
+      if (phase === "tool_done") {
+        const lastRunning = [...statusSteps].reverse().findIndex((s) => !s.done);
+        if (lastRunning >= 0) {
+          statusSteps[statusSteps.length - 1 - lastRunning].done = true;
+        }
+        return true;
+      }
+
+      return false;
+    }
+
+    function buildContent() {
+      return [
+        // Status indicator always first (if any steps)
+        ...(statusSteps.length > 0 ? [buildAgentStatusBlock(statusSteps)] : []),
+        // Streaming text
+        ...(accumulatedText ? [{ type: "text" as const, text: accumulatedText }] : []),
+        // UI card(s)
+        ...Array.from(uiPayloads.entries()).map(([toolName, payload]) => ({
+          type: "tool-call" as const,
+          toolCallId: toolName,
+          toolName,
+          args: {},
+          argsText: "{}",
+          result: payload,
+        })),
+      ];
+    }
 
     while (true) {
       const { done, value } = await reader.read();
@@ -94,23 +154,26 @@ export const createSellerCopilotAdapter = (
         try {
           const data = JSON.parse(line.slice(5).trim());
 
-          if (currentEvent === "token") {
+          if (currentEvent === "status") {
+            hasStatusUpdate = handleStatus(data);
+            if (hasStatusUpdate) {
+              const content = buildContent();
+              if (content.length > 0) yield { content };
+            }
+          } else if (currentEvent === "token") {
             const token = data.content as string;
             tokenBuffer += token;
 
-            // Determine on first non-whitespace content whether this is JSON
-            if (
-              isStructuredResponse === null &&
-              tokenBuffer.trim().length > 0
-            ) {
+            // Mark all remaining running steps as done once text starts
+            statusSteps.forEach((s) => { s.done = true; });
+
+            if (isStructuredResponse === null && tokenBuffer.trim().length > 0) {
               isStructuredResponse = tokenBuffer.trimStart().startsWith("{");
             }
 
             if (!isStructuredResponse) {
-              // Plain text — stream directly
               accumulatedText += token;
             } else {
-              // JSON response — extract only "message" field value
               if (!messageValueDone) {
                 if (!inMessageValue) {
                   const match = tokenBuffer.match(/"message"\s*:\s*"([\s\S]*)/);
@@ -123,17 +186,10 @@ export const createSellerCopilotAdapter = (
                     accumulatedText = messageExtracted;
                   }
                 } else {
-                  // Already inside message value, process new token
-                  const remaining = tokenBuffer.slice(
-                    tokenBuffer.indexOf('"message"'),
-                  );
-                  const afterMatch = remaining.match(
-                    /"message"\s*:\s*"([\s\S]*)/,
-                  );
+                  const remaining = tokenBuffer.slice(tokenBuffer.indexOf('"message"'));
+                  const afterMatch = remaining.match(/"message"\s*:\s*"([\s\S]*)/);
                   if (afterMatch) {
-                    const { extracted, done } = extractJsonString(
-                      afterMatch[1],
-                    );
+                    const { extracted, done } = extractJsonString(afterMatch[1]);
                     messageExtracted = extracted;
                     messageValueDone = done;
                     accumulatedText = messageExtracted;
@@ -142,34 +198,18 @@ export const createSellerCopilotAdapter = (
               }
             }
           } else if (currentEvent === "ui") {
-            const key = "ui";
-            uiPayloads.set(key, data.payload);
+            uiPayloads.set("ui", data.payload);
           } else if (currentEvent === "error") {
             throw new Error(data.message);
           } else if (currentEvent === "message" && !accumulatedText) {
             accumulatedText = data.content;
+            statusSteps.forEach((s) => { s.done = true; });
           }
 
-          currentEvent = ""; // reset after consuming the data line
+          currentEvent = "";
 
-          if (accumulatedText || uiPayloads.size > 0) {
-            yield {
-              content: [
-                ...(accumulatedText
-                  ? [{ type: "text" as const, text: accumulatedText }]
-                  : []),
-                ...Array.from(uiPayloads.entries()).map(
-                  ([toolName, payload]) => ({
-                    type: "tool-call" as const,
-                    toolCallId: toolName,
-                    toolName,
-                    args: {},
-                    argsText: "{}",
-                    result: payload,
-                  }),
-                ),
-              ],
-            };
+          if (accumulatedText || uiPayloads.size > 0 || statusSteps.length > 0) {
+            yield { content: buildContent() };
           }
         } catch (e) {
           if (e instanceof Error && e.message !== "skip") throw e;

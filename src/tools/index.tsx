@@ -1,9 +1,18 @@
 import { useAssistantToolUI } from "@assistant-ui/react";
 import { CustomerListButton } from "../components/CustomerListButton";
+import { AgentStatusIndicator } from "../components/AgentStatusIndicator";
 // import { ThreadListButton } from "../components/ThreadListButton";
 // import { ThreadMessagesButton } from "../components/ThreadMessagesButton";
 
 export const ToolUIRegistry = () => {
+  useAssistantToolUI({
+    toolName: "agentStatus",
+    render: ({ result }) => {
+      if (!result) return null;
+      return <AgentStatusIndicator steps={(result as any).steps ?? []} />;
+    },
+  });
+
   useAssistantToolUI({
     toolName: "ui",
     render: ({ result }) => {

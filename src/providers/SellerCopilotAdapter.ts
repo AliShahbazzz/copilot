@@ -51,21 +51,24 @@ export const createSellerCopilotAdapter = (
       .map((c) => (c as { type: "text"; text: string }).text)
       .join("");
 
-    const response = await fetch(`http://localhost:2024/api/zopilot/stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+    const response = await fetch(
+      `https://playground-qa.zotok.ai/api/zopilot/stream`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          thread_id: threadId,
+          message: text,
+          seller_workspace_id: config.sellerWorkspaceId,
+          wa_config_id: config.waConfigId,
+          seller_details: config.sellerDetails,
+        }),
+        signal: abortSignal,
       },
-      body: JSON.stringify({
-        thread_id: threadId,
-        message: text,
-        seller_workspace_id: config.sellerWorkspaceId,
-        wa_config_id: config.waConfigId,
-        seller_details: config.sellerDetails,
-      }),
-      signal: abortSignal,
-    });
+    );
 
     if (!response.ok || !response.body) {
       throw new Error(`API error: ${response.statusText}`);
@@ -92,22 +95,32 @@ export const createSellerCopilotAdapter = (
       const phase = data.phase as string;
 
       if (phase === "thinking") {
-        statusSteps.push({ label: (data.label as string) || "Analyzing your request", done: false });
+        statusSteps.push({
+          label: (data.label as string) || "Analyzing your request",
+          done: false,
+        });
         return true;
       }
 
       if (phase === "tool_start") {
         // Complete any currently running step (e.g. the "thinking" step)
-        const lastRunning = [...statusSteps].reverse().findIndex((s) => !s.done);
+        const lastRunning = [...statusSteps]
+          .reverse()
+          .findIndex((s) => !s.done);
         if (lastRunning >= 0) {
           statusSteps[statusSteps.length - 1 - lastRunning].done = true;
         }
-        statusSteps.push({ label: (data.label as string) || `Running ${data.tool}`, done: false });
+        statusSteps.push({
+          label: (data.label as string) || `Running ${data.tool}`,
+          done: false,
+        });
         return true;
       }
 
       if (phase === "tool_done") {
-        const lastRunning = [...statusSteps].reverse().findIndex((s) => !s.done);
+        const lastRunning = [...statusSteps]
+          .reverse()
+          .findIndex((s) => !s.done);
         if (lastRunning >= 0) {
           statusSteps[statusSteps.length - 1 - lastRunning].done = true;
         }
@@ -122,7 +135,9 @@ export const createSellerCopilotAdapter = (
         // Status indicator always first (if any steps)
         ...(statusSteps.length > 0 ? [buildAgentStatusBlock(statusSteps)] : []),
         // Streaming text
-        ...(accumulatedText ? [{ type: "text" as const, text: accumulatedText }] : []),
+        ...(accumulatedText
+          ? [{ type: "text" as const, text: accumulatedText }]
+          : []),
         // UI card(s)
         ...Array.from(uiPayloads.entries()).map(([toolName, payload]) => ({
           type: "tool-call" as const,
@@ -165,9 +180,14 @@ export const createSellerCopilotAdapter = (
             tokenBuffer += token;
 
             // Mark all remaining running steps as done once text starts
-            statusSteps.forEach((s) => { s.done = true; });
+            statusSteps.forEach((s) => {
+              s.done = true;
+            });
 
-            if (isStructuredResponse === null && tokenBuffer.trim().length > 0) {
+            if (
+              isStructuredResponse === null &&
+              tokenBuffer.trim().length > 0
+            ) {
               isStructuredResponse = tokenBuffer.trimStart().startsWith("{");
             }
 
@@ -186,10 +206,16 @@ export const createSellerCopilotAdapter = (
                     accumulatedText = messageExtracted;
                   }
                 } else {
-                  const remaining = tokenBuffer.slice(tokenBuffer.indexOf('"message"'));
-                  const afterMatch = remaining.match(/"message"\s*:\s*"([\s\S]*)/);
+                  const remaining = tokenBuffer.slice(
+                    tokenBuffer.indexOf('"message"'),
+                  );
+                  const afterMatch = remaining.match(
+                    /"message"\s*:\s*"([\s\S]*)/,
+                  );
                   if (afterMatch) {
-                    const { extracted, done } = extractJsonString(afterMatch[1]);
+                    const { extracted, done } = extractJsonString(
+                      afterMatch[1],
+                    );
                     messageExtracted = extracted;
                     messageValueDone = done;
                     accumulatedText = messageExtracted;
@@ -203,12 +229,18 @@ export const createSellerCopilotAdapter = (
             throw new Error(data.message);
           } else if (currentEvent === "message" && !accumulatedText) {
             accumulatedText = data.content;
-            statusSteps.forEach((s) => { s.done = true; });
+            statusSteps.forEach((s) => {
+              s.done = true;
+            });
           }
 
           currentEvent = "";
 
-          if (accumulatedText || uiPayloads.size > 0 || statusSteps.length > 0) {
+          if (
+            accumulatedText ||
+            uiPayloads.size > 0 ||
+            statusSteps.length > 0
+          ) {
             yield { content: buildContent() };
           }
         } catch (e) {

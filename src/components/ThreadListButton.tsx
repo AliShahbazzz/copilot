@@ -1,17 +1,18 @@
 import { usePanel } from "../providers/PanelContext";
+import type { ui_payload } from "./model";
 
-export const ThreadListButton = ({ result }: { result: any }) => {
+export const ThreadListButton = ({ result }: { result: ui_payload }) => {
   const { setPanel } = usePanel();
 
   const component = result?.component;
   if (!component) return null;
 
-  const { title, description, total_found, threads = [] } = component;
+  const { title, description, data } = component;
 
   const excludedKeys = ["channelId", "conversationId", "timetokens"];
   const columns =
-    threads.length > 0
-      ? Object.keys(threads[0]).filter((k) => !excludedKeys.includes(k))
+    data?.list?.length > 0
+      ? Object.keys(data?.list?.[0]).filter((k) => !excludedKeys.includes(k))
       : [];
 
   const formatHeader = (key: string) =>
@@ -65,7 +66,7 @@ export const ThreadListButton = ({ result }: { result: any }) => {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {threads.map((thread: any) => (
+          {data?.list?.map((thread: any) => (
             <tr
               key={thread.channelId}
               className="hover:bg-gray-50 transition-colors"
@@ -101,7 +102,7 @@ export const ThreadListButton = ({ result }: { result: any }) => {
           <p className="text-xs text-gray-500 mt-0.5">{description}</p>
         </div>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-          {total_found ?? threads.length} results
+          {data?.list.length} results
         </span>
       </div>
     </button>

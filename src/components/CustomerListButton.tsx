@@ -1,28 +1,13 @@
 import { usePanel } from "../providers/PanelContext";
+import type { ui_payload } from "./model";
 
-export interface CustomerListPayload {
-  type: "ui_action";
-  component: {
-    type: string;
-    subType: string;
-    title: string;
-    description: string;
-    metadata: string;
-    data: any[];
-  };
-}
-
-export const CustomerListButton = ({
-  result,
-}: {
-  result: CustomerListPayload;
-}) => {
+export const CustomerListButton = ({ result }: { result: ui_payload }) => {
   const { setPanel } = usePanel();
 
   if (!result?.component) return <></>;
   const { title, description } = result.component;
 
-  const customers = result.component.data ?? [];
+  const customers = result.component.data?.list ?? [];
 
   // Derive columns dynamically from first record's keys, excluding id-like fields
   const excludedKeys = ["customerId", "customerCode", "id"];

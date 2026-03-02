@@ -56,6 +56,9 @@ export const CustomerListButton = ({ result }: { result: ui_payload }) => {
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-white">
           <tr className="border-b">
+            <th className="text-left py-2 pr-6 font-medium text-gray-500 text-xs uppercase tracking-wide">
+              #
+            </th>
             {columns.map((col) => (
               <th
                 key={col}
@@ -67,11 +70,14 @@ export const CustomerListButton = ({ result }: { result: ui_payload }) => {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {customers.map((customer: any) => (
+          {customers.map((customer: any, idx) => (
             <tr
               key={customer.customerId ?? customer.id}
               className="hover:bg-gray-50 transition-colors"
             >
+              <td className="py-3 pr-6 text-gray-400 text-xs font-mono">
+                {idx + 1}
+              </td>
               {columns.map((col) => (
                 <td
                   key={col}

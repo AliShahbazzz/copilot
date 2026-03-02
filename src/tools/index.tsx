@@ -26,6 +26,7 @@ export const ToolUIRegistry = () => {
             case "ledger":
               return <CustomerListButton result={result as any} />;
             case "thread":
+            case "threads":
               return <ThreadListButton result={result as any} />;
             case "messages":
               return <ThreadMessagesButton result={result as any} />;

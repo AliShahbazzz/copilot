@@ -94,7 +94,7 @@ export const ThreadListButton = ({ result }: { result: ui_payload }) => {
     <button
       onClick={() => setPanel(panel)}
       className="w-full text-left rounded-xl border px-4 py-3 shadow-sm hover:shadow-md transition-all duration-200"
-      style={{ borderColor: "#e5e7eb" }}
+      style={{ borderColor: "#e5e7eb", padding: "12px 16px" }}
     >
       <div className="flex items-center justify-between">
         <div>
